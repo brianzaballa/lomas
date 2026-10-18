@@ -2,9 +2,13 @@
 
 use App\Domain\Access\Role as RoleName;
 use App\Domain\Audit\AuditAction;
+use App\Domain\Loans\LoanDraftService;
 use App\Enums\BorrowerStatus;
+use App\Models\Area;
 use App\Models\AuditLog;
 use App\Models\Borrower;
+use App\Models\Loan;
+use App\Models\LoanProduct;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -171,6 +175,34 @@ it('shows the borrower profile', function () {
         );
 });
 
+it('shows the borrower loan history', function () {
+    $borrower = Borrower::factory()->create([
+        'borrower_number' => 'BR-000001',
+        'first_name' => 'Juan',
+        'middle_name' => null,
+        'last_name' => 'Dela Cruz',
+    ]);
+
+    $product = LoanProduct::factory()->create();
+    $loan = app(LoanDraftService::class)->create([
+        'borrower_id' => $borrower->id,
+        'loan_product_id' => $product->id,
+        'application_date' => '2026-10-03',
+        'gross_loan_amount' => '10000.00',
+    ]);
+
+    $this->actingAs(actingAsRole(RoleName::ADMINISTRATOR))
+        ->get(route('borrowers.show', $borrower))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('borrowers/Show')
+            ->where('borrower.loans.0.loan_number', $loan->loan_number)
+            ->where('borrower.loans.0.gross_loan_amount', '10000.00')
+            ->where('borrower.loans.0.status', Loan::STATUS_DRAFT)
+            ->where('borrower.loans.0.status_label', 'Draft')
+        );
+});
+
 it('shows the create form only to a user who may create borrowers', function () {
     $this->actingAs(actingAsRole(RoleName::ADMINISTRATOR))
         ->get(route('borrowers.create'))
@@ -279,6 +311,32 @@ it('refuses to register a borrower without the create permission', function () {
     $this->actingAs(actingAsRole(RoleName::VIEWER))
         ->post(route('borrowers.store'), borrowerPayload())
         ->assertForbidden();
+
+    expect(Borrower::query()->count())->toBe(0);
+});
+
+it('tags a borrower with a default area', function () {
+    $area = Area::query()->create([
+        'code' => 'MNL',
+        'name' => 'Manila',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs(actingAsRole(RoleName::ADMINISTRATOR))
+        ->post(route('borrowers.store'), borrowerPayload([
+            'default_area_id' => $area->id,
+        ]))
+        ->assertRedirect();
+
+    expect(Borrower::query()->sole()->default_area_id)->toBe($area->id);
+});
+
+it('rejects a default area that does not exist', function () {
+    $this->actingAs(actingAsRole(RoleName::ADMINISTRATOR))
+        ->post(route('borrowers.store'), borrowerPayload([
+            'default_area_id' => (string) str()->uuid(),
+        ]))
+        ->assertSessionHasErrors('default_area_id');
 
     expect(Borrower::query()->count())->toBe(0);
 });

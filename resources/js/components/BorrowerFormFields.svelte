@@ -24,13 +24,23 @@
         values = {},
         statuses = [],
         status = $bindable('active'),
+        defaultAreaId = $bindable(values.default_area_id ?? ''),
+        areas = [],
         errors = {},
     }: {
-        values?: BorrowerValues;
+        values?: BorrowerValues & { default_area_id?: string | null; default_area?: any };
         statuses?: { value: string; label: string }[];
         status?: string;
+        defaultAreaId?: string;
+        areas?: Array<{ id: string; code: string; name: string }>;
         errors?: Record<string, string | undefined>;
     } = $props();
+
+    $effect(() => {
+        if (values.default_area_id && defaultAreaId === '') {
+            defaultAreaId = values.default_area_id;
+        }
+    });
 </script>
 
 <div class="grid gap-4 sm:grid-cols-2">
@@ -141,5 +151,25 @@
             a new one.
         </p>
         <InputError message={errors.status} />
+    </div>
+
+    <div class="grid gap-2">
+        <Label for="default_area_id">Default area</Label>
+        <input type="hidden" name="default_area_id" value={defaultAreaId} />
+        <Select bind:value={defaultAreaId}>
+            <SelectTrigger id="default_area_id" class="w-full" aria-label="Default area">
+                {areas.find((option) => option.id === defaultAreaId)?.name ??
+                    (defaultAreaId ? defaultAreaId : 'Select an area')}
+            </SelectTrigger>
+            <SelectContent>
+                {#each areas as option (option.id)}
+                    <SelectItem value={option.id}>{option.name} ({option.code})</SelectItem>
+                {/each}
+            </SelectContent>
+        </Select>
+        <p class="text-xs text-muted-foreground">
+            This will be the default area when creating a new loan for this borrower.
+        </p>
+        <InputError message={errors.default_area_id} />
     </div>
 </div>

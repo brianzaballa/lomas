@@ -83,6 +83,21 @@ class SystemSettings
     }
 
     /**
+     * The period mode the Notes Collection Report posts in.
+     *
+     * Anything other than a known mode falls back to weekly so a stale or
+     * hand-edited row can never make period resolution unbounded.
+     */
+    public function ncrPeriodMode(): string
+    {
+        $mode = $this->get()->ncr_period_mode;
+
+        return in_array($mode, SystemSetting::NCR_PERIOD_MODES, true)
+            ? $mode
+            : SystemSetting::NCR_PERIOD_MODE_WEEKLY;
+    }
+
+    /**
      * Format an amount for display, print and export using the configured currency.
      *
      * The amount is grouped from its exact decimal string so that money is never
@@ -93,17 +108,23 @@ class SystemSettings
         $symbol = (new NumberFormatter($this->locale(), NumberFormatter::CURRENCY))
             ->getSymbol(NumberFormatter::CURRENCY_SYMBOL);
 
+        return ($amount->isNegative() ? '-' : '').$symbol.$this->formatAmount($amount->abs());
+    }
+
+    /**
+     * Format an amount as a grouped decimal without a currency symbol.
+     *
+     * Compact reports state the currency once and print plain figures, which
+     * saves a column of repeated symbols. Money is still grouped from its exact
+     * decimal string, never through a float.
+     */
+    public function formatAmount(Money $amount): string
+    {
         [$whole, $fraction] = array_pad(explode('.', $amount->abs()->toDecimalString(), 2), 2, '0');
 
         $grouped = strrev(implode(',', str_split(strrev($whole), 3)));
 
-        return sprintf(
-            '%s%s%s.%s',
-            $amount->isNegative() ? '-' : '',
-            $symbol,
-            $grouped,
-            $fraction,
-        );
+        return sprintf('%s%s.%s', $amount->isNegative() ? '-' : '', $grouped, $fraction);
     }
 
     private function locale(): string

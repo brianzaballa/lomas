@@ -11,8 +11,10 @@ use Carbon\CarbonInterface;
 use Database\Factories\LoanProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -38,6 +40,7 @@ use Illuminate\Support\Str;
  * @property bool $is_active
  * @property int $version
  * @property Carbon|null $distributed_at
+ * @property-read Collection<int, LoanDeductionType> $deductionTypes
  */
 #[Fillable([
     'name',
@@ -63,6 +66,36 @@ class LoanProduct extends Model
      * node that owns configuration. See AGENTS.md sections 69.3 and 69.4.
      */
     use HasUuidKey;
+
+    /**
+     * The deduction types this product charges.
+     *
+     * @return BelongsToMany<LoanDeductionType, $this>
+     */
+    public function deductionTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(LoanDeductionType::class, 'loan_product_deduction_types')
+            ->withPivot(['id', 'sort_order'])
+            ->withTimestamps();
+    }
+
+    /**
+     * The deduction types a loan under this product is actually charged.
+     *
+     * A globally inactive type is skipped. A loan that still needs one keeps
+     * it through its own snapshot, so retiring a type never rewrites history.
+     *
+     * @return Collection<int, LoanDeductionType>
+     */
+    public function activeDeductionTypes(): Collection
+    {
+        return $this->deductionTypes()
+            ->where('loan_deduction_types.is_active', true)
+            ->orderBy('loan_product_deduction_types.sort_order')
+            ->orderBy('loan_deduction_types.sort_order')
+            ->orderBy('loan_deduction_types.name')
+            ->get();
+    }
 
     /**
      * Whether the given date is collected on, given the weekend rules.

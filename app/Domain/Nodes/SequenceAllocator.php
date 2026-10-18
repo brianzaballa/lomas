@@ -51,6 +51,46 @@ class SequenceAllocator
     }
 
     /**
+     * Reserve a contiguous block of values and return the first one.
+     *
+     * The block is drawn in a single locked transaction, so a bulk writer can
+     * issue many numbers without paying for a transaction per number.
+     */
+    public function nextBlock(string $entity, int $count): int
+    {
+        if ($count <= 0) {
+            throw new InvalidArgumentException('A sequence block must contain at least one value.');
+        }
+
+        $this->guardEntity($entity);
+
+        $nodeId = $this->identity->id();
+
+        return DB::transaction(function () use ($nodeId, $entity, $count): int {
+            Sequence::query()->firstOrCreate(
+                ['node_id' => $nodeId, 'entity' => $entity],
+                ['next_value' => 1],
+            );
+
+            $sequence = Sequence::query()
+                ->where('node_id', $nodeId)
+                ->where('entity', $entity)
+                ->lockForUpdate()
+                ->first();
+
+            if ($sequence === null) {
+                throw new InvalidArgumentException("The sequence for [{$entity}] could not be read.");
+            }
+
+            $value = (int) $sequence->next_value;
+
+            $sequence->forceFill(['next_value' => $value + $count])->save();
+
+            return $value;
+        });
+    }
+
+    /**
      * The value that will be handed out next, without advancing anything.
      */
     public function peek(string $entity): int

@@ -19,6 +19,7 @@ financial behaviour.
 | Database | MySQL / MariaDB (`DECIMAL(15,2)` money)   |
 | Auth     | Fortify (login, reset, 2FA, passkeys)     |
 | Access   | `spatie/laravel-permission`               |
+| Reports  | `barryvdh/laravel-dompdf` (server PDF)    |
 | Quality  | Pest, Pint, Larastan, svelte-check, Vite+ |
 
 ## Setup
@@ -133,23 +134,54 @@ app/Domain/Borrowers   borrower number generation
 app/Actions/LoanProducts  loan product creation and update
 app/Actions/DeductionTypes deduction type creation and update
 app/Domain/Loans      collection calendar (which dates are collected)
-resources/js/pages     Inertia pages (Svelte 5)
+app/Domain/Payments   payments, allocations, balances, collection posting
+app/Domain/Reporting  PDF renderer and report read models
+resources/js/pages    Inertia pages (Svelte 5)
 resources/js/components shared components, including the sidebar
+resources/views/reports print-only Blade layouts rendered to PDF
 ```
 
 ## Status
 
-| Phase   | Scope                                      | State       |
-| ------- | ------------------------------------------ | ----------- |
-| 1       | Foundation                                 | Complete    |
-| 2       | Borrowers                                  | Complete    |
-| 3       | Loan products and deduction types          | Complete    |
-| 3.5     | Node identity and offline foundation       | Not started |
-| 4–9     | Loan encoding through production hardening | Not started |
-| 10      | Branch sync and central consolidation      | Not started |
+| Phase | Scope                                    | State       |
+| ----- | ---------------------------------------- | ----------- |
+| 1     | Foundation                               | Complete    |
+| 2     | Borrowers                                | Complete    |
+| 3     | Loan products and deduction types        | Complete    |
+| 3.5   | Node identity and offline foundation     | Complete    |
+| 4     | Loan encoding                            | Complete    |
+| 5     | Loan processing (approval and release)   | Complete    |
+| 6     | Amortization                             | Complete    |
+| 7     | Collections (daily collection, payments) | Complete    |
+| 8     | Reporting (print/PDF)                    | In progress |
+| 9     | Production hardening                     | Not started |
+| 10    | Branch sync and central consolidation    | Not started |
 
 Navigation shows the modules of later phases as disabled entries so the intended
 information architecture is visible without pretending the features exist.
+
+## Reports and printing
+
+Reports are rendered server-side to PDF with `barryvdh/laravel-dompdf`. Each
+report has a dedicated, print-only Blade layout under `resources/views/reports`;
+the browser page is never printed directly. `App\Domain\Reporting\ReportPdf`
+fixes the shared options (A4, remote resources disabled so a branch stays
+offline-capable) and a read model such as `LoanScheduleReport` prepares the
+formatted figures.
+
+The layouts are dense on purpose. A 100-day schedule is split into balanced
+side-by-side columns, so the whole schedule, its summary and its terms fit on a
+single A4 sheet. Amounts are grouped from their exact decimal strings, and the
+currency is stated once instead of repeated in every cell.
+
+- `GET /loans/{loan}/schedule` renders the amortization schedule inline for
+  printing; add `?download=1` to save it as a file.
+- `GET /reports/notes-collection?week=YYYY-MM-DD` shows the weekly Notes
+  Collection Report (Monday–Saturday) on screen.
+- `GET /reports/notes-collection/export?week=YYYY-MM-DD` renders it to PDF
+  (`?download=1` to save); add `&format=csv` for a CSV export. Every total is
+  recalculated from posted payments, so the document always reconciles with the
+  transactions.
 
 ## Multi-branch and offline operation
 
@@ -198,8 +230,10 @@ A loan product holds the term, the collection calendar and the interest:
   can never be configured in a way the engine cannot honour.
 
 The weekend rules are read through `CollectionCalendar`, the single place that
-decides whether a date is a collection day. The amortization generator that will
-consume it arrives with Phase 6.
+decides whether a date is a collection day. `AmortizationScheduleGenerator`
+consumes it at release to freeze the schedule, and the generator never runs
+again after that. A non-even division is settled on the final installment, so
+the installments always sum to the exact total amount payable.
 
 A deduction type describes how a deduction is calculated, never an amount that
 was already charged:
@@ -210,7 +244,7 @@ was already charged:
 - Rates and amounts are stored as exact decimals and are never passed through a
   float.
 - Editing a type or a product never changes a released loan. The amount charged
-  to a loan is copied onto the loan at release, which is Phase 4.
+  to a loan is copied onto the loan as a snapshot when the loan is encoded.
 
 Creating or updating either record writes an audit entry with the previous
 values, and an update that changes nothing writes nothing.

@@ -16,4 +16,12 @@ abstract class Controller
     {
         Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
     }
+
+    /**
+     * Flash an error toast to the next Inertia response.
+     */
+    protected function error(string $message): void
+    {
+        Inertia::flash('toast', ['type' => 'error', 'message' => $message]);
+    }
 }

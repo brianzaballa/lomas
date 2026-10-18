@@ -100,3 +100,54 @@ it('builds the calendar from a product', function () {
         ->and($product->isCollectionDay(day(4)))->toBeFalse()
         ->and($calendar->nextCollectionDay(day(3))->toDateString())->toBe('2026-10-05');
 });
+
+it('generates the requested number of collection days', function () {
+    $calendar = new CollectionCalendar(excludeSundays: true, excludeSaturdays: false);
+
+    // Thursday 1 October is skipped by default, then Fri, Sat, (skip Sun), Mon, Tue.
+    $dates = $calendar->generateCollectionDates(day(1), 5);
+
+    expect(array_map(fn ($date) => $date->toDateString(), $dates))->toBe([
+        '2026-10-02',
+        '2026-10-03',
+        '2026-10-05',
+        '2026-10-06',
+        '2026-10-07',
+    ]);
+});
+
+it('counts the start date as the first day only when asked', function () {
+    $calendar = new CollectionCalendar(excludeSundays: true, excludeSaturdays: false);
+
+    $withStart = $calendar->generateCollectionDates(day(1), 2, includeStart: true);
+    $withoutStart = $calendar->generateCollectionDates(day(1), 2);
+
+    expect($withStart[0]->toDateString())->toBe('2026-10-01')
+        ->and($withoutStart[0]->toDateString())->toBe('2026-10-02');
+});
+
+it('moves past a non-collection start date even when including it', function () {
+    $calendar = new CollectionCalendar(excludeSundays: true, excludeSaturdays: false);
+
+    // Sunday 4 October is never a collection day.
+    $dates = $calendar->generateCollectionDates(day(4), 1, includeStart: true);
+
+    expect($dates[0]->toDateString())->toBe('2026-10-05');
+});
+
+it('generates an exact term across a month and year boundary', function () {
+    $calendar = new CollectionCalendar(excludeSundays: true, excludeSaturdays: false);
+
+    $dates = $calendar->generateCollectionDates(CarbonImmutable::parse('2026-12-20'), 100);
+
+    expect($dates)->toHaveCount(100)
+        ->and($dates[0]->toDateString())->toBe('2026-12-21')
+        // No Sunday is ever present.
+        ->and(collect($dates)->contains(fn ($date) => $date->dayOfWeek === CarbonImmutable::SUNDAY))->toBeFalse();
+});
+
+it('returns no dates when the term is zero', function () {
+    $calendar = new CollectionCalendar;
+
+    expect($calendar->generateCollectionDates(day(1), 0))->toBe([]);
+});

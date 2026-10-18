@@ -40,7 +40,7 @@
     import type { Paginated } from '@/types';
 
     type BorrowerRow = {
-        id: number;
+        id: string;
         borrower_number: string;
         full_name: string;
         mobile_number: string;

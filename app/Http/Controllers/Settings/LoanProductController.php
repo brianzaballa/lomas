@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Settings;
 
 use App\Actions\LoanProducts\CreateLoanProduct;
 use App\Actions\LoanProducts\UpdateLoanProduct;
+use App\Domain\Settings\SystemSettings;
+use App\Enums\DeductionCalculationMethod;
 use App\Enums\InterestMethod;
 use App\Enums\PaymentFrequency;
 use App\Enums\TermUnit;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreLoanProductRequest;
 use App\Http\Requests\Settings\UpdateLoanProductRequest;
+use App\Models\LoanDeductionType;
 use App\Models\LoanProduct;
+use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,6 +29,8 @@ use Inertia\Response;
  */
 class LoanProductController extends Controller
 {
+    public function __construct(private readonly SystemSettings $settings) {}
+
     /**
      * The list of loan products.
      */
@@ -40,6 +46,7 @@ class LoanProductController extends Controller
             'termUnits' => $this->options(TermUnit::cases()),
             'paymentFrequencies' => $this->options(PaymentFrequency::cases()),
             'interestMethods' => $this->options(InterestMethod::cases()),
+            'deductionTypes' => $this->deductionTypeOptions(),
         ]);
     }
 
@@ -48,7 +55,10 @@ class LoanProductController extends Controller
      */
     public function store(StoreLoanProductRequest $request, CreateLoanProduct $createLoanProduct): RedirectResponse
     {
-        $product = $createLoanProduct->handle($request->loanProductAttributes());
+        $product = $createLoanProduct->handle(
+            $request->loanProductAttributes(),
+            $request->loanProductDeductionTypeIds(),
+        );
 
         $this->success("Loan product [{$product->name}] created.");
 
@@ -60,7 +70,11 @@ class LoanProductController extends Controller
      */
     public function update(UpdateLoanProductRequest $request, LoanProduct $loanProduct, UpdateLoanProduct $updateLoanProduct): RedirectResponse
     {
-        $updateLoanProduct->handle($loanProduct, $request->loanProductAttributes());
+        $updateLoanProduct->handle(
+            $loanProduct,
+            $request->loanProductAttributes(),
+            $request->loanProductDeductionTypeIds(),
+        );
 
         $this->success("Loan product [{$loanProduct->name}] updated.");
 
@@ -87,8 +101,52 @@ class LoanProductController extends Controller
             'release_date_is_day_one' => $product->release_date_is_day_one,
             'interest_method' => $product->interest_method->value,
             'interest_rate' => $product->interest_rate,
+            'deduction_type_ids' => array_values(array_map(
+                static fn (LoanDeductionType $type): string => $type->id,
+                $product->deductionTypes->sortBy('pivot.sort_order')->all(),
+            )),
+            'deduction_labels' => array_values(array_map(
+                static fn (LoanDeductionType $type): string => "{$type->name} ({$type->code})",
+                $product->deductionTypes->sortBy('pivot.sort_order')->all(),
+            )),
             'is_active' => $product->is_active,
         ];
+    }
+
+    /**
+     * Every deduction type a product may charge, so the form can offer them.
+     *
+     * @return list<array{id: string, label: string, method: string, value_label: string, is_active: bool}>
+     */
+    protected function deductionTypeOptions(): array
+    {
+        $types = LoanDeductionType::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->all();
+
+        return array_values(array_map(fn (LoanDeductionType $type): array => [
+            'id' => $type->id,
+            'label' => $type->name,
+            'method' => $type->calculation_method->label(),
+            'value_label' => $this->deductionValueLabel($type),
+            'is_active' => $type->is_active,
+        ], $types));
+    }
+
+    /**
+     * How a deduction type charges, in the words staff use: "1%" or "₱50.00".
+     */
+    protected function deductionValueLabel(LoanDeductionType $type): string
+    {
+        if ($type->calculation_method === DeductionCalculationMethod::FixedAmount) {
+            return $type->fixed_amount === null
+                ? ''
+                : $this->settings->formatMoney(Money::of($type->fixed_amount));
+        }
+
+        return $type->rateLabel();
     }
 
     /**

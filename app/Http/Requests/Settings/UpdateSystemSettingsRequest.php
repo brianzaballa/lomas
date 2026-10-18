@@ -4,6 +4,7 @@ namespace App\Http\Requests\Settings;
 
 use App\Domain\Access\Permission;
 use App\Domain\Settings\SequenceFormatter;
+use App\Models\SystemSetting;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Arr;
@@ -44,6 +45,7 @@ class UpdateSystemSettingsRequest extends FormRequest
             'currency_symbol' => ['required', 'string', 'max:8'],
             'loan_number_format' => ['required', 'string', 'max:64'],
             'borrower_number_format' => ['required', 'string', 'max:64'],
+            'ncr_period_mode' => ['required', Rule::in(SystemSetting::NCR_PERIOD_MODES)],
             'reason' => ['nullable', 'string', 'max:500'],
         ];
     }

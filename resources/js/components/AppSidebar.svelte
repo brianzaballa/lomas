@@ -7,6 +7,7 @@
     import ListChecks from '@lucide/svelte/icons/list-checks';
     import Percent from '@lucide/svelte/icons/percent';
     import Receipt from '@lucide/svelte/icons/receipt';
+    import MapPin from '@lucide/svelte/icons/map-pin';
     import ScrollText from '@lucide/svelte/icons/scroll-text';
     import Settings from '@lucide/svelte/icons/settings';
     import ShieldCheck from '@lucide/svelte/icons/shield-check';
@@ -35,7 +36,11 @@
         index as borrowers,
     } from '@/routes/borrowers';
     import { index as deductionTypes } from '@/routes/deduction-types';
+    import { daily as dailyCollection } from '@/routes/collections';
+    import { index as areas } from '@/routes/areas';
     import { index as loanProducts } from '@/routes/loan-products';
+    import { index as paymentsIndex } from '@/routes/payments';
+    import { dailyCollection as dailyCollectionReport, notesCollection } from '@/routes/reports';
     import { index as roles } from '@/routes/roles';
     import { edit as systemSettings } from '@/routes/system-settings';
     import { index as users } from '@/routes/users';
@@ -52,6 +57,11 @@
     const permissions = $derived(
         (page.props.auth?.user?.permission_names ?? []) as string[],
     );
+    const devMode = $derived(Boolean(page.props.devMode));
+    const isAdministrator = $derived(
+        (page.props.auth?.user?.role_names ?? []).includes('Administrator'),
+    );
+    const canBypass = $derived(devMode && isAdministrator);
 
     /**
      * Navigation entry that only appears as a link when the user holds the
@@ -64,7 +74,7 @@
         permission: string,
         group?: string,
     ): NavEntry {
-        const allowed = permissions.includes(permission);
+        const allowed = canBypass || permissions.includes(permission);
 
         return {
             title,
@@ -74,64 +84,26 @@
         };
     }
 
+    function planned(title: string, icon: IconComponent, href: string, badge: string, group?: string): NavEntry {
+        return {
+            title,
+            icon,
+            ...(group ? { group } : {}),
+            ...(canBypass ? { href } : { disabled: true, badge }),
+        };
+    }
+
     const plannedItems: NavEntry[] = [
-        {
-            group: 'Loans',
-            title: 'All Loans',
-            icon: Wallet,
-            disabled: true,
-            badge: 'Phase 4',
-        },
-        {
-            title: 'New Loan',
-            icon: Banknote,
-            disabled: true,
-            badge: 'Phase 4',
-        },
-        {
-            title: 'Active Loans',
-            icon: ListChecks,
-            disabled: true,
-            badge: 'Phase 5',
-        },
-        {
-            title: 'Past Due',
-            icon: Calendar,
-            disabled: true,
-            badge: 'Phase 7',
-        },
-        {
-            title: 'Completed',
-            icon: ListChecks,
-            disabled: true,
-            badge: 'Phase 7',
-        },
-        {
-            group: 'Collections',
-            title: 'Daily Collection',
-            icon: Receipt,
-            disabled: true,
-            badge: 'Phase 7',
-        },
-        {
-            title: 'Payments',
-            icon: Banknote,
-            disabled: true,
-            badge: 'Phase 7',
-        },
-        {
-            title: 'Notes Collection Report',
-            icon: FileText,
-            disabled: true,
-            badge: 'Phase 8',
-        },
-        {
-            group: 'Reports',
-            title: 'Progress Report',
-            icon: FileText,
-            disabled: true,
-            badge: 'Phase 8',
-        },
+        gated('All Loans', Wallet, '/loans', 'loans.view', 'Loans'),
+        gated('New Loan', Banknote, '/loans/create', 'loans.create'),
+        planned('Active Loans', ListChecks, '/loans?status=active', 'Phase 5'),
+        planned('Past Due', Calendar, '/loans?status=past_due', 'Phase 7'),
+        planned('Completed', ListChecks, '/loans?status=completed', 'Phase 7'),
+        gated('Daily Collection', Receipt, dailyCollection().url, 'payments.create', 'Collections'),
+        gated('Payments', Banknote, paymentsIndex().url, 'payments.view'),
+        gated('Daily Collection Report', Receipt, dailyCollectionReport().url, 'reports.view', 'Reports'),
+        gated('Notes Collection Report', FileText, notesCollection().url, 'reports.view', 'Reports'),
+        planned('Progress Report', FileText, '/reports/progress', 'Phase 8', 'Reports'),
     ];
 
     const mainNavItems = $derived<NavEntry[]>([
@@ -150,6 +122,13 @@
         ),
         gated('New Borrower', UserPlus, createBorrower().url, 'borrowers.create'),
         ...plannedItems,
+        gated(
+            'Areas',
+            MapPin,
+            areas().url,
+            'settings.manage',
+            'Settings',
+        ),
         gated(
             'Loan Products',
             Percent,

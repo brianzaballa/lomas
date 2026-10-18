@@ -23,9 +23,10 @@
     import Heading from '@/components/Heading.svelte';
     import { Button } from '@/components/ui/button';
 
-    let { statuses }: { statuses: { value: string; label: string }[] } = $props();
+    let { statuses, areas }: { statuses: { value: string; label: string }[]; areas: Array<{ id: string; code: string; name: string }> } = $props();
 
     let status = $state('active');
+    let defaultAreaId = $state('');
 </script>
 
 <AppHead title="New borrower" />
@@ -42,7 +43,7 @@
     <Form {...BorrowerController.store.form()} options={{ preserveScroll: true }}>
         {#snippet children({ errors, processing })}
             <div class="grid gap-6">
-                <BorrowerFormFields {statuses} bind:status {errors} />
+                <BorrowerFormFields {statuses} {areas} bind:status bind:defaultAreaId {errors} />
 
                 <div class="flex items-center gap-4">
                     <Button type="submit" disabled={processing}>Create borrower</Button>

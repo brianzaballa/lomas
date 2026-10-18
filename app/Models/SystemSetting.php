@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property string $currency_symbol
  * @property string $loan_number_format
  * @property string $borrower_number_format
+ * @property string $ncr_period_mode
  * @property int $version
  * @property Carbon|null $distributed_at
  * @property Carbon|null $created_at
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
     'currency_symbol',
     'loan_number_format',
     'borrower_number_format',
+    'ncr_period_mode',
 ])]
 class SystemSetting extends Model
 {
@@ -44,6 +46,26 @@ class SystemSetting extends Model
      * Format placeholders understood by the sequence formatter.
      */
     public const FORMAT_PLACEHOLDERS = ['{year}', '{month}', '{node}', '{seq}', '{seq:N}'];
+
+    /**
+     * The Notes Collection Report posts in Monday to Saturday weeks.
+     */
+    public const NCR_PERIOD_MODE_WEEKLY = 'weekly';
+
+    /**
+     * The Notes Collection Report posts in 1-10, 11-20 and 21 to end of month.
+     */
+    public const NCR_PERIOD_MODE_DECILE = 'decile';
+
+    /**
+     * The accepted Notes Collection Report period modes.
+     *
+     * @var list<string>
+     */
+    public const NCR_PERIOD_MODES = [
+        self::NCR_PERIOD_MODE_WEEKLY,
+        self::NCR_PERIOD_MODE_DECILE,
+    ];
 
     /**
      * The default formats used when a fresh installation is seeded.
@@ -59,5 +81,6 @@ class SystemSetting extends Model
         // never issue the same number. See AGENTS.md sections 21, 22 and 69.3.
         'loan_number_format' => 'LN-{node}-{year}-{seq:6}',
         'borrower_number_format' => 'BR-{node}-{seq:6}',
+        'ncr_period_mode' => self::NCR_PERIOD_MODE_WEEKLY,
     ];
 }

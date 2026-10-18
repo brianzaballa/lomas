@@ -42,7 +42,29 @@ trait HandlesLoanProductRules
             'interest_method' => ['required', Rule::in(InterestMethod::values())],
             'interest_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'is_active' => ['required', 'boolean'],
+            'deduction_type_ids' => ['nullable', 'array'],
+            'deduction_type_ids.*' => ['uuid', Rule::exists('loan_deduction_types', 'id')],
         ];
+    }
+
+    /**
+     * The deduction types the product charges, in the order the form lists them.
+     *
+     * Kept out of loanProductAttributes() because it is not a column on the
+     * product: it configures the links between the product and its deduction
+     * types, which is a separate write.
+     *
+     * @return list<string>
+     */
+    public function loanProductDeductionTypeIds(): array
+    {
+        /** @var list<string> $ids */
+        $ids = array_values(array_unique(array_filter(
+            (array) $this->input('deduction_type_ids', []),
+            'is_string',
+        )));
+
+        return $ids;
     }
 
     /**

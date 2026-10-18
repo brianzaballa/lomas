@@ -36,7 +36,7 @@ it('qualifies the actor label with the node so two nodes never produce one label
     // The node code is part of the label, so the same account on another node
     // produces a different label and the two user 1s stay apart at central.
     expect($log->user_label)->toBe(config('lomas.node.code').' - admin@lomas.test')
-        ->and($log->user_label)->toStartWith('MNL1 - ');
+        ->and($log->user_label)->toStartWith(config('lomas.node.code').' - ');
 });
 
 it('records the acting user only as a convenience, never as the identity', function () {

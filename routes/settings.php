@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Access\Permission;
+use App\Http\Controllers\Settings\AreaController;
 use App\Http\Controllers\Settings\DeductionTypeController;
 use App\Http\Controllers\Settings\LoanProductController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -30,6 +31,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('settings/appearance', 'settings/Appearance')->name('appearance.edit');
 
     Route::middleware('permission:'.Permission::SETTINGS_MANAGE)->group(function () {
+        Route::get('settings/areas', [AreaController::class, 'index'])->name('areas.index');
+        Route::post('settings/areas', [AreaController::class, 'store'])->name('areas.store');
+        Route::patch('settings/areas/{area}', [AreaController::class, 'update'])->name('areas.update');
+
         Route::get('settings/system', [SystemSettingsController::class, 'edit'])->name('system-settings.edit');
         Route::put('settings/system', [SystemSettingsController::class, 'update'])->name('system-settings.update');
 

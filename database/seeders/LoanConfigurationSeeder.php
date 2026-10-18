@@ -8,6 +8,7 @@ use App\Enums\PaymentFrequency;
 use App\Enums\TermUnit;
 use App\Models\LoanDeductionType;
 use App\Models\LoanProduct;
+use App\Models\LoanProductDeductionType;
 use Illuminate\Database\Seeder;
 
 /**
@@ -29,6 +30,7 @@ class LoanConfigurationSeeder extends Seeder
     {
         $this->seedLoanProduct();
         $this->seedDeductionTypes();
+        $this->attachProductDeductions();
     }
 
     protected function seedLoanProduct(): void
@@ -85,6 +87,33 @@ class LoanConfigurationSeeder extends Seeder
             LoanDeductionType::query()->firstOrCreate(
                 ['code' => $type['code']],
                 [...$type, 'is_active' => true],
+            );
+        }
+    }
+
+    /**
+     * Which of those deductions the 100-Day Loan actually charges.
+     *
+     * A deduction type existing does not mean every product charges it, which
+     * is why this link is configuration in its own right. Both links are
+     * idempotent on the type code, so re-running never duplicates or silently
+     * overrides a link a staff member already changed.
+     */
+    protected function attachProductDeductions(): void
+    {
+        $product = LoanProduct::query()->where('code', 'LOAN-100D')->firstOrFail();
+
+        foreach (['DOC_STAMP', 'PASSBOOK'] as $sortOrder => $code) {
+            $type = LoanDeductionType::query()->where('code', $code)->firstOrFail();
+
+            LoanProductDeductionType::query()->firstOrCreate(
+                [
+                    'loan_product_id' => $product->getKey(),
+                    'loan_deduction_type_id' => $type->getKey(),
+                ],
+                [
+                    'sort_order' => $sortOrder + 1,
+                ],
             );
         }
     }

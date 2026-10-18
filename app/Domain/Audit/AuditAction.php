@@ -38,6 +38,16 @@ final class AuditAction
 
     public const SETTINGS_UPDATED = 'settings.updated';
 
+    public const COLLECTION_POSTED = 'collection.posted';
+
+    public const PAYMENT_POSTED = 'payment.posted';
+
+    public const PAYMENT_REVERSED = 'payment.reversed';
+
+    public const NCR_PERIOD_POSTED = 'ncr_period.posted';
+
+    public const NCR_PERIOD_UNPOSTED = 'ncr_period.unposted';
+
     /**
      * Every action name known to the application.
      *
@@ -60,6 +70,11 @@ final class AuditAction
             self::ROLE_UPDATED,
             self::ROLE_DELETED,
             self::SETTINGS_UPDATED,
+            self::COLLECTION_POSTED,
+            self::PAYMENT_POSTED,
+            self::PAYMENT_REVERSED,
+            self::NCR_PERIOD_POSTED,
+            self::NCR_PERIOD_UNPOSTED,
         ];
     }
 

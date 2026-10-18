@@ -12,9 +12,11 @@
 </script>
 
 <script lang="ts">
-    import { Link, page } from '@inertiajs/svelte';
+    import { Link, page, router } from '@inertiajs/svelte';
+    import Banknote from '@lucide/svelte/icons/banknote';
     import Pencil from '@lucide/svelte/icons/pencil';
     import Phone from '@lucide/svelte/icons/phone';
+    import Send from '@lucide/svelte/icons/send';
     import AppHead from '@/components/AppHead.svelte';
     import { Badge } from '@/components/ui/badge';
     import { Button } from '@/components/ui/button';
@@ -33,9 +35,14 @@
         TableRow,
     } from '@/components/ui/table';
     import { edit, index } from '@/routes/borrowers';
+    import {
+        edit as editLoan,
+        release as releaseLoan,
+        show as showLoan,
+    } from '@/routes/loans';
 
     type BorrowerProfile = {
-        id: number;
+        id: string;
         borrower_number: string;
         full_name: string;
         first_name: string;
@@ -49,6 +56,18 @@
         status_label: string;
         created_at: string | null;
         updated_at: string | null;
+        create_loan_url: string;
+        loans: Array<{
+            id: string;
+            loan_number: string;
+            status: string;
+            status_label: string;
+            application_date: string | null;
+            release_date: string | null;
+            gross_loan_amount: string;
+            net_proceeds_amount: string;
+            total_amount_payable: string;
+        }>;
     };
 
     let { borrower }: { borrower: BorrowerProfile } = $props();
@@ -57,6 +76,12 @@
         (page.props.auth?.user?.permission_names ?? []) as string[],
     );
     const canUpdate = $derived(permissions.includes('borrowers.update'));
+    const canEditLoan = $derived(permissions.includes('loans.create'));
+    const canReleaseLoan = $derived(permissions.includes('loans.release'));
+
+    function postLoan(loanId: string): void {
+        router.post(releaseLoan({ loan: loanId }));
+    }
 </script>
 
 {#snippet detail(label: string, value: string | null)}
@@ -99,6 +124,14 @@
                     {/snippet}
                 </Button>
             {/if}
+            <Button size="sm" asChild>
+                {#snippet children(props)}
+                    <Link href={borrower.create_loan_url} class={props.class}>
+                        <Banknote class="size-4" />
+                        Create loan
+                    </Link>
+                {/snippet}
+            </Button>
             <Button variant="outline" size="sm" asChild>
                 {#snippet children(props)}
                     <Link href={index()} class={props.class}>All borrowers</Link>
@@ -138,23 +171,71 @@
                         <TableHead>Released</TableHead>
                         <TableHead class="text-right">Gross amount</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead class="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow>
-                        <TableCell
-                            colspan={4}
-                            class="h-20 text-center text-muted-foreground"
-                        >
-                            This borrower has no loans yet.
-                        </TableCell>
-                    </TableRow>
+                    {#each borrower.loans as loan (loan.id)}
+                        <TableRow>
+                            <TableCell class="font-mono text-sm">
+                                <Link
+                                    href={showLoan({ loan: loan.id })}
+                                    class="hover:underline"
+                                >
+                                    {loan.loan_number}
+                                </Link>
+                            </TableCell>
+                            <TableCell>{loan.release_date ?? loan.application_date ?? '—'}</TableCell>
+                            <TableCell class="text-right tabular-nums">{loan.gross_loan_amount}</TableCell>
+                            <TableCell>
+                                <Badge variant={loan.status === 'released' ? 'secondary' : 'outline'}>
+                                    {loan.status_label}
+                                </Badge>
+                            </TableCell>
+                            <TableCell class="text-right">
+                                <div class="flex justify-end gap-2">
+                                    {#if loan.status === 'draft' && canEditLoan}
+                                        <Button variant="outline" size="sm" asChild>
+                                            {#snippet children(props)}
+                                                <Link
+                                                    href={editLoan({ loan: loan.id })}
+                                                    class={props.class}
+                                                >
+                                                    <Pencil class="size-3.5" />
+                                                    Edit
+                                                </Link>
+                                            {/snippet}
+                                        </Button>
+                                    {/if}
+                                    {#if loan.status === 'pending_approval' && canReleaseLoan}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onclick={() => postLoan(loan.id)}
+                                        >
+                                            <Send class="size-3.5" />
+                                            Release
+                                        </Button>
+                                    {/if}
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    {:else}
+                        <TableRow>
+                            <TableCell
+                                colspan={5}
+                                class="h-20 text-center text-muted-foreground"
+                            >
+                                This borrower has no loans yet.
+                            </TableCell>
+                        </TableRow>
+                    {/each}
                 </TableBody>
             </Table>
 
             <p class="flex items-center gap-2 text-xs text-muted-foreground">
                 <Phone class="size-3.5" />
-                Loan history appears here once a loan is released.
+                Drafts can be edited. A pending loan can be released, which freezes its schedule.
             </p>
         </CardContent>
     </Card>

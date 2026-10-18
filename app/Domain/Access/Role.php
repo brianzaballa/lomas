@@ -43,12 +43,11 @@ final class Role
                 Permission::LOANS_VIEW,
                 Permission::LOANS_CREATE,
                 Permission::LOANS_UPDATE,
-                Permission::LOANS_APPROVE,
-                Permission::LOANS_RELEASE,
-                Permission::LOANS_CANCEL,
+                
                 Permission::PAYMENTS_VIEW,
                 Permission::REPORTS_VIEW,
                 Permission::REPORTS_EXPORT,
+                Permission::REPORTS_POST,
                 Permission::SETTINGS_VIEW,
             ],
 

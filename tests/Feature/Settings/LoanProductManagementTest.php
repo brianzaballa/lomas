@@ -1,11 +1,15 @@
 <?php
 
+use App\Actions\LoanProducts\SyncLoanProductDeductions;
 use App\Domain\Access\Permission;
 use App\Domain\Audit\AuditAction;
 use App\Models\AuditLog;
+use App\Models\LoanDeductionType;
 use App\Models\LoanProduct;
+use App\Models\LoanProductDeductionType;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Support\Str;
 
 beforeEach(function () {
     $this->seed(RolePermissionSeeder::class);
@@ -262,4 +266,133 @@ it('does not let a user without the settings permission update a product', funct
         ->assertForbidden();
 
     expect($product->refresh()->name)->toBe('100-Day Loan');
+});
+
+it('links the deduction types a product charges, in the order given', function () {
+    $user = User::factory()->create();
+    $user->givePermissionTo(Permission::SETTINGS_MANAGE);
+
+    $docStamp = LoanDeductionType::factory()->create(['name' => 'Documentary Stamp', 'code' => 'DOC_STAMP', 'sort_order' => 1]);
+    $passbook = LoanDeductionType::factory()->fixed('50.00')->create(['name' => 'Passbook', 'code' => 'PASSBOOK', 'sort_order' => 2]);
+
+    $this->actingAs($user)->post(route('loan-products.store'), [
+        ...$this->attributes,
+        'deduction_type_ids' => [$passbook->id, $docStamp->id],
+    ])->assertSessionHasNoErrors();
+
+    $product = LoanProduct::query()->sole();
+
+    expect($product->deductionTypes()
+        ->orderBy('loan_product_deduction_types.sort_order')
+        ->pluck('loan_deduction_types.code')
+        ->all()
+    )->toBe(['PASSBOOK', 'DOC_STAMP'])
+        ->and($product->deductionTypes()
+            ->orderBy('loan_product_deduction_types.sort_order')
+            ->pluck('loan_product_deduction_types.sort_order')
+            ->all()
+        )->toBe([1, 2]);
+
+    $log = AuditLog::query()
+        ->where('action', AuditAction::LOAN_PRODUCT_CREATED)
+        ->firstOrFail();
+
+    expect($log->new_values['deduction_codes'])->toBe(['PASSBOOK', 'DOC_STAMP']);
+});
+
+it('creates a product with no deductions when none are chosen', function () {
+    $user = User::factory()->create();
+    $user->givePermissionTo(Permission::SETTINGS_MANAGE);
+
+    $this->actingAs($user)->post(route('loan-products.store'), $this->attributes)
+        ->assertSessionHasNoErrors();
+
+    expect(LoanProduct::query()->sole()->deductionTypes)->toHaveCount(0);
+});
+
+it('rejects a deduction type that does not exist', function () {
+    $user = User::factory()->create();
+    $user->givePermissionTo(Permission::SETTINGS_MANAGE);
+
+    $this->actingAs($user)->post(route('loan-products.store'), [
+        ...$this->attributes,
+        'deduction_type_ids' => [(string) Str::uuid()],
+    ])->assertSessionHasErrors('deduction_type_ids.0');
+
+    expect(LoanProduct::query()->count())->toBe(0);
+});
+
+it('unlinks a deduction type that is no longer chosen and audits the change', function () {
+    $user = User::factory()->create();
+    $user->givePermissionTo(Permission::SETTINGS_MANAGE);
+
+    $docStamp = LoanDeductionType::factory()->create(['code' => 'DOC_STAMP']);
+    $insurance = LoanDeductionType::factory()->create(['code' => 'INSURANCE']);
+
+    $product = LoanProduct::factory()->create(['name' => '100-Day Loan', 'code' => 'LOAN-100D']);
+    app(SyncLoanProductDeductions::class)->handle($product, [$docStamp->id, $insurance->id]);
+
+    $this->actingAs($user)->patch(route('loan-products.update', $product), [
+        ...$this->attributes,
+        'code' => 'LOAN-100D',
+        'term' => 100,
+        'deduction_type_ids' => [$insurance->id],
+    ])->assertSessionHasNoErrors();
+
+    expect($product->deductionTypes()->pluck('loan_deduction_types.code')->all())
+        ->toBe(['INSURANCE'])
+        ->and(LoanProductDeductionType::query()->where('loan_product_id', $product->id)->count())
+        ->toBe(1);
+
+    $log = AuditLog::query()
+        ->where('action', AuditAction::LOAN_PRODUCT_UPDATED)
+        ->firstOrFail();
+
+    expect($log->old_values['deduction_codes'])->toBe(['DOC_STAMP', 'INSURANCE'])
+        ->and($log->new_values['deduction_codes'])->toBe(['INSURANCE']);
+});
+
+it('unlinks every deduction when a product is saved with none chosen', function () {
+    $user = User::factory()->create();
+    $user->givePermissionTo(Permission::SETTINGS_MANAGE);
+
+    $product = LoanProduct::factory()->create(['name' => '100-Day Loan', 'code' => 'LOAN-100D']);
+    app(SyncLoanProductDeductions::class)->handle($product, [
+        LoanDeductionType::factory()->create(['code' => 'DOC_STAMP'])->id,
+    ]);
+
+    // An unticked box is not submitted, so the form posts no ids at all. The
+    // links must still be cleared, not left behind by an empty filter.
+    $this->actingAs($user)->patch(route('loan-products.update', $product), [
+        ...$this->attributes,
+        'code' => 'LOAN-100D',
+        'term' => 100,
+    ])->assertSessionHasNoErrors();
+
+    expect($product->deductionTypes)->toHaveCount(0)
+        ->and(LoanProductDeductionType::query()->where('loan_product_id', $product->id)->count())
+        ->toBe(0);
+});
+
+it('offers every deduction type in the product settings', function () {
+    $user = User::factory()->create();
+    $user->givePermissionTo(Permission::SETTINGS_MANAGE);
+
+    $docStamp = LoanDeductionType::factory()->create(['name' => 'Documentary Stamp', 'sort_order' => 1]);
+    $passbook = LoanDeductionType::factory()->fixed('50.00')->create(['name' => 'Passbook', 'sort_order' => 2]);
+
+    $product = LoanProduct::factory()->create();
+    app(SyncLoanProductDeductions::class)->handle($product, [$docStamp->id]);
+
+    $this->actingAs($user)
+        ->get(route('loan-products.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('settings/LoanProducts')
+            ->has('deductionTypes', 2)
+            ->where('deductionTypes.0.id', $docStamp->id)
+            ->where('deductionTypes.1.id', $passbook->id)
+            ->where('products.0.deduction_type_ids', [$docStamp->id])
+            ->where('products.0.deduction_labels', ['Documentary Stamp ('.$docStamp->code.')'])
+        );
 });

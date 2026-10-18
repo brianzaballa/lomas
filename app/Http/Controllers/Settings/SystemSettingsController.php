@@ -31,6 +31,7 @@ class SystemSettingsController extends Controller
                 'currency_symbol' => $setting->currency_symbol,
                 'loan_number_format' => $setting->loan_number_format,
                 'borrower_number_format' => $setting->borrower_number_format,
+                'ncr_period_mode' => $setting->ncr_period_mode,
             ],
             'placeholders' => SystemSetting::FORMAT_PLACEHOLDERS,
             'updatedAt' => $setting->updated_at?->toDateTimeString(),

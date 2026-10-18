@@ -8,6 +8,7 @@ use App\Domain\Access\Permission;
 use App\Enums\BorrowerStatus;
 use App\Http\Requests\Borrowers\StoreBorrowerRequest;
 use App\Http\Requests\Borrowers\UpdateBorrowerRequest;
+use App\Models\Area;
 use App\Models\Borrower;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -69,6 +70,10 @@ class BorrowerController extends Controller
 
         return Inertia::render('borrowers/Create', [
             'statuses' => $this->statuses(),
+            'areas' => Area::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'code', 'name']),
         ]);
     }
 
@@ -91,6 +96,8 @@ class BorrowerController extends Controller
     {
         $this->authorize(Permission::BORROWERS_VIEW);
 
+        $borrower->load(['loans' => fn ($query) => $query->latest('created_at')->latest('id')]);
+
         return Inertia::render('borrowers/Show', [
             'borrower' => $this->profile($borrower),
         ]);
@@ -106,6 +113,10 @@ class BorrowerController extends Controller
         return Inertia::render('borrowers/Edit', [
             'borrower' => $this->form($borrower),
             'statuses' => $this->statuses(),
+            'areas' => Area::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'code', 'name']),
         ]);
     }
 
@@ -150,6 +161,12 @@ class BorrowerController extends Controller
             'suffix' => $borrower->suffix,
             'birth_date' => $borrower->birth_date?->toDateString(),
             'address' => $borrower->address,
+            'default_area_id' => $borrower->default_area_id,
+            'default_area' => $borrower->defaultArea !== null ? [
+                'id' => $borrower->defaultArea->id,
+                'code' => $borrower->defaultArea->code,
+                'name' => $borrower->defaultArea->name,
+            ] : null,
         ];
     }
 
@@ -161,6 +178,18 @@ class BorrowerController extends Controller
         return [
             ...$this->form($borrower),
             'updated_at' => $borrower->updated_at?->toDateTimeString(),
+            'create_loan_url' => route('loans.create', ['borrower' => $borrower->id]),
+            'loans' => $borrower->loans->map(fn ($loan): array => [
+                'id' => $loan->id,
+                'loan_number' => $loan->loan_number,
+                'status' => $loan->status,
+                'status_label' => $loan->statusLabel(),
+                'application_date' => $loan->application_date?->toDateString(),
+                'release_date' => $loan->release_date?->toDateString(),
+                'gross_loan_amount' => (string) $loan->gross_loan_amount,
+                'net_proceeds_amount' => (string) $loan->net_proceeds_amount,
+                'total_amount_payable' => (string) $loan->total_amount_payable,
+            ])->values()->all(),
         ];
     }
 

@@ -67,4 +67,40 @@ class CollectionCalendar
 
         return $previous;
     }
+
+    /**
+     * The next $count collection days, starting from the given date.
+     *
+     * When $includeStart is true and the start date is itself a collection day,
+     * it becomes the first date. That is how a product that counts its release
+     * date as day one is expressed; otherwise the sequence begins on the next
+     * collection day. The day-one rule lives here and nowhere else, see
+     * AGENTS.md section 63.1.1.
+     *
+     * @return list<CarbonImmutable>
+     */
+    public function generateCollectionDates(
+        CarbonInterface $startDate,
+        int $count,
+        bool $includeStart = false,
+    ): array {
+        if ($count < 1) {
+            return [];
+        }
+
+        $cursor = $startDate->toImmutable();
+
+        if (! $includeStart || ! $this->isCollectionDay($cursor)) {
+            $cursor = $this->nextCollectionDay($cursor);
+        }
+
+        $dates = [];
+
+        while (count($dates) < $count) {
+            $dates[] = $cursor;
+            $cursor = $this->nextCollectionDay($cursor);
+        }
+
+        return $dates;
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Concerns\HasUuidKey;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
@@ -12,6 +13,7 @@ use Illuminate\Support\Carbon;
  * plus consolidation. See AGENTS.md section 69.2.
  *
  * @property string $id
+ * @property string|null $area_id
  * @property string $code
  * @property string $name
  * @property string $role
@@ -23,7 +25,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['code', 'name', 'role', 'public_key', 'timezone', 'is_active', 'last_seen_at', 'last_applied_serial'])]
+#[Fillable(['area_id', 'code', 'name', 'role', 'public_key', 'timezone', 'is_active', 'last_seen_at', 'last_applied_serial'])]
 class Node extends Model
 {
     use HasUuidKey;
@@ -47,5 +49,13 @@ class Node extends Model
     public function isCentral(): bool
     {
         return $this->role === self::ROLE_CENTRAL;
+    }
+
+    /**
+     * @return BelongsTo<Area, $this>
+     */
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 }

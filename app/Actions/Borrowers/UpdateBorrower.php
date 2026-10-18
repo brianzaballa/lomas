@@ -58,6 +58,7 @@ class UpdateBorrower
             'mobile_number' => $borrower->mobile_number,
             'address' => $borrower->address,
             'status' => $borrower->status->value,
+            'default_area_id' => $borrower->default_area_id,
         ];
     }
 }

@@ -169,6 +169,42 @@
                     </div>
                 </div>
 
+                <Separator />
+
+                <div class="space-y-1">
+                    <p class="text-sm font-medium">Notes Collection Report</p>
+                    <p class="text-sm text-muted-foreground">
+                        The period the report is posted in. Weekly runs Monday
+                        to Saturday; the decile periods run 1st to 10th, 11th to
+                        20th, and 21st to the last day of the month.
+                    </p>
+                </div>
+
+                <div class="grid gap-2 sm:grid-cols-2">
+                    <div class="grid gap-2">
+                        <Label for="ncr_period_mode">Report period</Label>
+                        <select
+                            id="ncr_period_mode"
+                            name="ncr_period_mode"
+                            class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <option
+                                value="weekly"
+                                selected={settings.ncr_period_mode === 'weekly'}
+                            >
+                                Weekly (Monday to Saturday)
+                            </option>
+                            <option
+                                value="decile"
+                                selected={settings.ncr_period_mode === 'decile'}
+                            >
+                                Decile (1–10, 11–20, 21–end)
+                            </option>
+                        </select>
+                        <InputError message={errors.ncr_period_mode} />
+                    </div>
+                </div>
+
                 <div class="grid gap-2">
                     <Label for="reason">Reason for change</Label>
                     <Textarea

@@ -14,7 +14,9 @@
 <script lang="ts">
     import AppHead from '@/components/AppHead.svelte';
     import Heading from '@/components/Heading.svelte';
-    import LoanProductForm from '@/components/settings/LoanProductForm.svelte';
+    import LoanProductForm, {
+        type DeductionTypeOption,
+    } from '@/components/settings/LoanProductForm.svelte';
     import { Badge } from '@/components/ui/badge';
     import { Button } from '@/components/ui/button';
     import {
@@ -38,11 +40,13 @@
         termUnits = [],
         paymentFrequencies = [],
         interestMethods = [],
+        deductionTypes = [],
     }: {
         products?: any[];
         termUnits?: { value: string; label: string }[];
         paymentFrequencies?: { value: string; label: string }[];
         interestMethods?: { value: string; label: string }[];
+        deductionTypes?: DeductionTypeOption[];
     } = $props();
 
     /** null keeps the list, 'new' opens a blank form, an id opens that row. */
@@ -93,6 +97,7 @@
             {termUnits}
             {paymentFrequencies}
             {interestMethods}
+            {deductionTypes}
             submitLabel="Create product"
             onSuccess={() => (editing = null)}
             onCancel={() => (editing = null)}
@@ -105,6 +110,7 @@
             {termUnits}
             {paymentFrequencies}
             {interestMethods}
+            {deductionTypes}
             submitLabel="Save changes"
             onSuccess={() => (editing = null)}
             onCancel={() => (editing = null)}
@@ -125,6 +131,7 @@
                         <TableHead>Term</TableHead>
                         <TableHead>Collection days</TableHead>
                         <TableHead>Interest</TableHead>
+                        <TableHead>Deductions</TableHead>
                         <TableHead>First due</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead class="text-right">
@@ -164,6 +171,15 @@
                                 </div>
                             </TableCell>
                             <TableCell>
+                                {#each product.deduction_labels as label (label)}
+                                    <div class="text-sm">{label}</div>
+                                {:else}
+                                    <div class="text-sm text-muted-foreground">
+                                        None
+                                    </div>
+                                {/each}
+                            </TableCell>
+                            <TableCell>
                                 {product.release_date_is_day_one
                                     ? 'Release date'
                                     : 'Next collection day'}
@@ -192,7 +208,7 @@
                     {:else}
                         <TableRow>
                             <TableCell
-                                colspan={7}
+                                colspan={8}
                                 class="py-8 text-center text-muted-foreground"
                             >
                                 No loan products yet.

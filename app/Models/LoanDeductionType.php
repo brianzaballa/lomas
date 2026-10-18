@@ -7,16 +7,19 @@ use App\Enums\DeductionCalculationMethod;
 use Database\Factories\LoanDeductionTypeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 /**
  * A configurable deduction, e.g. documentary stamp or passbook.
  *
- * A deduction type is configuration. The amount a loan was actually charged is
- * copied into loan_deductions when the loan is released, so a later change to
- * this row never alters a released loan.
+ * A deduction type describes how a deduction is calculated. Which products
+ * charge it is configured per loan product. The amount a loan was actually
+ * charged is copied into loan_deductions when the loan is encoded, so a later
+ * change to this row never alters an existing loan.
  *
  * Interest is not stored here. The rate belongs to the loan product, because it
  * is the product that defines how much a loan costs.
@@ -32,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property int $sort_order
  * @property int $version
  * @property Carbon|null $distributed_at
+ * @property-read Collection<int, LoanProduct> $loanProducts
  */
 #[Fillable([
     'name',
@@ -53,6 +57,18 @@ class LoanDeductionType extends Model
      * node that owns configuration. See AGENTS.md sections 69.3 and 69.4.
      */
     use HasUuidKey;
+
+    /**
+     * The products that charge this deduction.
+     *
+     * @return BelongsToMany<LoanProduct, $this>
+     */
+    public function loanProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(LoanProduct::class, 'loan_product_deduction_types')
+            ->withPivot(['id', 'sort_order'])
+            ->withTimestamps();
+    }
 
     /**
      * @param  Builder<self>  $query

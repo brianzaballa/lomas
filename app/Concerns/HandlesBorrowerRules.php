@@ -30,6 +30,7 @@ trait HandlesBorrowerRules
             'mobile_number' => ['required', 'string', 'max:20', 'regex:/^[0-9+()\-\s]+$/'],
             'address' => ['required', 'string', 'max:255'],
             'status' => ['sometimes', Rule::in(BorrowerStatus::values())],
+            'default_area_id' => ['nullable', 'uuid', 'exists:areas,id'],
         ];
     }
 
@@ -61,6 +62,7 @@ trait HandlesBorrowerRules
             'mobile_number' => $this->validated('mobile_number'),
             'address' => $this->validated('address'),
             'status' => $this->validated('status'),
+            'default_area_id' => $this->validated('default_area_id'),
         ];
     }
 

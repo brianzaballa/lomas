@@ -2,6 +2,7 @@
 
 use App\Models\LoanDeductionType;
 use App\Models\LoanProduct;
+use App\Models\LoanProductDeductionType;
 use Database\Seeders\LoanConfigurationSeeder;
 use Illuminate\Support\Facades\DB;
 
@@ -64,12 +65,43 @@ it('never seeds interest as a deduction type', function () {
         ->and(LoanProduct::query()->sole()->interest_rate)->toBe('10.00');
 });
 
+it('charges the seeded deductions on the seeded product', function () {
+    $this->seed(LoanConfigurationSeeder::class);
+
+    $product = LoanProduct::query()->where('code', 'LOAN-100D')->firstOrFail();
+
+    // The order is the order the charges are listed in, so a loan statement
+    // reads the same way every time.
+    expect($product->deductionTypes
+        ->sortBy('pivot.sort_order')
+        ->map(fn (LoanDeductionType $type): string => $type->code)
+        ->values()
+        ->all()
+    )->toBe(['DOC_STAMP', 'PASSBOOK'])
+        ->and($product->activeDeductionTypes()->pluck('code')->all())
+        ->toBe(['DOC_STAMP', 'PASSBOOK']);
+});
+
 it('does not duplicate the configuration when seeded again', function () {
     $this->seed(LoanConfigurationSeeder::class);
     $this->seed(LoanConfigurationSeeder::class);
 
     expect(LoanProduct::query()->count())->toBe(1)
-        ->and(LoanDeductionType::query()->count())->toBe(2);
+        ->and(LoanDeductionType::query()->count())->toBe(2)
+        ->and(LoanProductDeductionType::query()->count())->toBe(2);
+});
+
+it('does not charge a deduction type that a product does not link', function () {
+    $this->seed(LoanConfigurationSeeder::class);
+
+    $product = LoanProduct::query()->where('code', 'LOAN-100D')->firstOrFail();
+
+    // A configured type that the product does not charge must not leak into
+    // the loan, which is the whole point of the per product setting.
+    LoanDeductionType::factory()->create(['code' => 'INSURANCE']);
+
+    expect($product->activeDeductionTypes()->pluck('code')->all())
+        ->toBe(['DOC_STAMP', 'PASSBOOK']);
 });
 
 it('keeps a staff change to a seeded product when re-seeded', function () {

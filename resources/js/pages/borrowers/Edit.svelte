@@ -29,16 +29,20 @@
     let {
         borrower,
         statuses,
+        areas = [],
     }: {
         borrower: BorrowerValues & {
-            id: number;
+            id: string;
             borrower_number: string;
             status: string;
+            default_area_id?: string | null;
         };
         statuses: { value: string; label: string }[];
+        areas: Array<{ id: string; code: string; name: string }>;
     } = $props();
 
     let status = $state(untrack(() => borrower.status));
+    let defaultAreaId = $state(untrack(() => borrower.default_area_id ?? ''));
 </script>
 
 <AppHead title="Edit {borrower.borrower_number}" />
@@ -61,7 +65,9 @@
                 <BorrowerFormFields
                     values={borrower}
                     {statuses}
+                    {areas}
                     bind:status
+                    bind:defaultAreaId
                     {errors}
                 />
 

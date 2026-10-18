@@ -19,12 +19,6 @@ final class Permission
 
     public const LOANS_UPDATE = 'loans.update';
 
-    public const LOANS_APPROVE = 'loans.approve';
-
-    public const LOANS_RELEASE = 'loans.release';
-
-    public const LOANS_CANCEL = 'loans.cancel';
-
     public const PAYMENTS_VIEW = 'payments.view';
 
     public const PAYMENTS_CREATE = 'payments.create';
@@ -34,6 +28,8 @@ final class Permission
     public const REPORTS_VIEW = 'reports.view';
 
     public const REPORTS_EXPORT = 'reports.export';
+
+    public const REPORTS_POST = 'reports.post';
 
     public const SETTINGS_VIEW = 'settings.view';
 
@@ -68,9 +64,7 @@ final class Permission
                 self::LOANS_VIEW,
                 self::LOANS_CREATE,
                 self::LOANS_UPDATE,
-                self::LOANS_APPROVE,
-                self::LOANS_RELEASE,
-                self::LOANS_CANCEL,
+
             ],
             'Payments' => [
                 self::PAYMENTS_VIEW,
@@ -80,6 +74,7 @@ final class Permission
             'Reports' => [
                 self::REPORTS_VIEW,
                 self::REPORTS_EXPORT,
+                self::REPORTS_POST,
             ],
             'Settings' => [
                 self::SETTINGS_VIEW,

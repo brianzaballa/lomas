@@ -15,16 +15,22 @@ use Illuminate\Support\Facades\DB;
  */
 class CreateLoanProduct
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly SyncLoanProductDeductions $deductions,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  list<string>  $deductionTypeIds
      */
-    public function handle(array $attributes): LoanProduct
+    public function handle(array $attributes, array $deductionTypeIds = []): LoanProduct
     {
-        return DB::transaction(function () use ($attributes): LoanProduct {
+        return DB::transaction(function () use ($attributes, $deductionTypeIds): LoanProduct {
             $product = new LoanProduct($attributes);
             $product->save();
+
+            $this->deductions->handle($product, $deductionTypeIds);
 
             $this->audit->recordCreated(AuditAction::LOAN_PRODUCT_CREATED, $product, [
                 'name' => $product->name,
@@ -37,6 +43,7 @@ class CreateLoanProduct
                 'release_date_is_day_one' => $product->release_date_is_day_one,
                 'interest_method' => $product->interest_method->value,
                 'interest_rate' => $product->interest_rate,
+                'deduction_codes' => $this->deductions->codes($product),
                 'is_active' => $product->is_active,
             ]);
 

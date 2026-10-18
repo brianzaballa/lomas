@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -40,6 +41,7 @@ use Illuminate\Support\Carbon;
     'mobile_number',
     'address',
     'status',
+    'default_area_id',
 ])]
 class Borrower extends Model
 {
@@ -52,6 +54,14 @@ class Borrower extends Model
     use HasFactory;
 
     use HasUuidKey;
+
+    /**
+     * @return HasMany<Loan, $this>
+     */
+    public function loans(): HasMany
+    {
+        return $this->hasMany(Loan::class);
+    }
 
     /**
      * The name as shown in lists and on printed documents.
@@ -102,6 +112,11 @@ class Borrower extends Model
         }
 
         return $query;
+    }
+
+    public function defaultArea()
+    {
+        return $this->belongsTo(Area::class, 'default_area_id');
     }
 
     /**

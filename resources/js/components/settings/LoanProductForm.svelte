@@ -26,7 +26,16 @@
         release_date_is_day_one?: boolean;
         interest_method?: string | null;
         interest_rate?: string | null;
+        deduction_type_ids?: string[];
         is_active?: boolean;
+    };
+
+    export type DeductionTypeOption = {
+        id: string;
+        label: string;
+        method: string;
+        value_label: string;
+        is_active: boolean;
     };
 
     let {
@@ -36,6 +45,7 @@
         termUnits = [],
         paymentFrequencies = [],
         interestMethods = [],
+        deductionTypes = [],
         submitLabel = 'Save product',
         onSuccess = () => {},
         onCancel = () => {},
@@ -46,6 +56,7 @@
         termUnits?: { value: string; label: string }[];
         paymentFrequencies?: { value: string; label: string }[];
         interestMethods?: { value: string; label: string }[];
+        deductionTypes?: DeductionTypeOption[];
         submitLabel?: string;
         onSuccess?: () => void;
         onCancel?: () => void;
@@ -69,6 +80,11 @@
         untrack(() => product?.release_date_is_day_one ?? false),
     );
     let isActive = $state(untrack(() => product?.is_active ?? true));
+    // Checkbox groups submit in DOM order, so the order a product charges its
+    // deductions in is simply the order the types are listed here.
+    let selectedDeductionTypes = $state<string[]>(
+        untrack(() => product?.deduction_type_ids ?? []),
+    );
 </script>
 
 <!-- An unchecked box is not submitted, and an absent flag means false. -->
@@ -309,6 +325,48 @@
                 <InputError message={errors.exclude_sundays} />
                 <InputError message={errors.exclude_saturdays} />
                 <InputError message={errors.release_date_is_day_one} />
+            </fieldset>
+
+            <Separator />
+
+            <fieldset class="grid gap-3">
+                <legend class="text-sm font-medium">Deductions</legend>
+                <p class="text-xs text-muted-foreground">
+                    The deductions this product charges on every loan. Interest
+                    is not listed here because its rate is set above. A loan
+                    keeps its own copy of the deductions, so changing this list
+                    never changes a loan that was already encoded.
+                </p>
+
+                {#each deductionTypes as type (type.id)}
+                    <label class="flex items-start gap-2 text-sm">
+                        <input
+                            type="checkbox"
+                            name="deduction_type_ids[]"
+                            value={type.id}
+                            bind:group={selectedDeductionTypes}
+                            class="mt-0.5 size-4 rounded accent-primary"
+                        />
+                        <span>
+                            {type.label}
+                            <span
+                                class="block text-xs text-muted-foreground"
+                            >
+                                {type.method} &middot; {type.value_label}
+                                {#if !type.is_active}
+                                    &middot; inactive, so not charged on new
+                                    loans
+                                {/if}
+                            </span>
+                        </span>
+                    </label>
+                {:else}
+                    <p class="text-sm text-muted-foreground">
+                        No deduction types configured yet.
+                    </p>
+                {/each}
+
+                <InputError message={errors.deduction_type_ids} />
             </fieldset>
 
             <Separator />

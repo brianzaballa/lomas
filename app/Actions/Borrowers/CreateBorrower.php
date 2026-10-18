@@ -28,7 +28,8 @@ class CreateBorrower
      *     birth_date?: string|null,
      *     mobile_number: string,
      *     address: string,
-     *     status?: string|null
+     *     status?: string|null,
+     *     default_area_id?: string|null
      * }  $attributes
      */
     public function handle(array $attributes): Borrower

@@ -46,6 +46,11 @@
     const permissions = $derived(
         (page.props.auth?.user?.permission_names ?? []) as string[],
     );
+    const devMode = $derived(Boolean(page.props.devMode));
+    const isAdministrator = $derived(
+        (page.props.auth?.user?.role_names ?? []).includes('Administrator'),
+    );
+    const canBypass = $derived(devMode && isAdministrator);
 
     const settings = $derived(page.props.settings as Record<string, unknown>);
 
@@ -83,7 +88,7 @@
     ];
 
     const visibleActions = $derived(
-        quickActions.filter((action) => permissions.includes(action.permission)),
+        quickActions.filter((action) => canBypass || permissions.includes(action.permission)),
     );
 
     const modules = [
@@ -157,7 +162,7 @@
                         {settings?.borrower_number_format ?? '—'}
                     </span>
                 </div>
-                {#if permissions.includes('settings.manage')}
+                {#if canBypass || permissions.includes('settings.manage')}
                     <Button variant="outline" size="sm" class="mt-2 w-full" asChild>
                         {#snippet children(props)}
                             <Link href={systemSettings()} class={props.class}>
@@ -204,7 +209,7 @@
                         {/if}
                     </div>
                 {/each}
-                {#if permissions.includes('users.manage')}
+                {#if canBypass || permissions.includes('users.manage')}
                     <div
                         class="flex items-center justify-between gap-2 rounded-lg border border-border/70 px-3 py-2"
                     >
@@ -253,7 +258,7 @@
                         <Badge variant="secondary">{module.phase}</Badge>
                     </div>
                 {/each}
-                {#if permissions.includes('audit.view')}
+                {#if canBypass || permissions.includes('audit.view')}
                     <Button variant="outline" size="sm" class="mt-2 w-full" asChild>
                         {#snippet children(props)}
                             <Link href={auditLogs()} class={props.class}>
@@ -263,7 +268,7 @@
                         {/snippet}
                     </Button>
                 {/if}
-                {#if permissions.includes('roles.manage')}
+                {#if canBypass || permissions.includes('roles.manage')}
                     <Button variant="outline" size="sm" class="w-full" asChild>
                         {#snippet children(props)}
                             <Link href={roles()} class={props.class}>
